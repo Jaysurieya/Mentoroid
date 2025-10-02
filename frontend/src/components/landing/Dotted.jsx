@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { useNavigate } from "react-router-dom";
+import Signup from '../authentication/Signup';
 
 import FadeContent from './Fade'
+
 
 function DottedSurface({ className = '', children }) {
   const [theme, setTheme] = useState('light');
   const canvasContainerRef = useRef(null);
   const sceneRef = useRef(null);
   const mountedRef = useRef(false);
-
   useEffect(() => {
     if (!canvasContainerRef.current || mountedRef.current) return;
     
@@ -179,7 +181,9 @@ function DottedSurface({ className = '', children }) {
   );
 }
 
-export default function DemoOne() {
+function Landing() {
+  
+  const navigate = useNavigate();
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
         <FadeContent >
@@ -199,7 +203,7 @@ export default function DemoOne() {
                     <h1 className="font-Algerian text-4xl md:text-6xl font-semibold text-white tracking-tight text-center" style={{ zIndex: 11,paddingBottom: '10px' }}>
                         Welcome to Mentoroid
                     </h1>
-                    <button className="mt-4 px-6 py-3 bg-white text-black  shadow-md hover:shadow-lg transition-shadow duration-300 w-full" style={{borderRadius: '10px'}}>
+                    <button className="mt-4 px-6 py-3 bg-white text-black  shadow-md hover:shadow-lg transition-shadow duration-300 w-full" style={{borderRadius: '10px'}} onClick={() => navigate("/signup")}>
                             Get Started 
                     </button>
                 </div> 
@@ -225,3 +229,5 @@ export default function DemoOne() {
     </div>
   );
 }
+
+export default Landing;
