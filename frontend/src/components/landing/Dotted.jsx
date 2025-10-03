@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useNavigate } from "react-router-dom";
-import Signup from '../authentication/Signup';
+
 
 import FadeContent from './Fade'
 
