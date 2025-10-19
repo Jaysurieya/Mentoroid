@@ -57,11 +57,11 @@ function Dashboard() {
                   fontWeight: '600',
                   fontSize: '14px',
                   color: isDarkMode ? '#ffffff' : '#0a0a0a'
-                }}>Duck UI</div>
+                }}>Mentoroid</div>
                 <div style={{
                   fontSize: '12px',
                   color: isDarkMode ? '#737373' : '#737373'
-                }}>Duckui@demo.com</div>
+                }}>User@mentoroid.com</div>
               </div>
             )}
           </div>
