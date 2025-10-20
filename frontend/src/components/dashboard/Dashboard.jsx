@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Home, Search, BarChart3, Bell, PieChart, Package, LogOut , GraduationCap, Sun ,Moon } from 'lucide-react';
+import AIChatInput from './Ai';
 
 function Dashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -186,13 +187,17 @@ function Dashboard() {
         }}>
           Welcome to Your Dashboard
         </h1>
-        <p style={{
-          fontSize: '16px',
-          color: isDarkMode ? '#a3a3a3' : '#525252',
-          lineHeight: '1.6'
-        }}>
-          This is your main content area. You can add any content you want here. The sidebar navigation is fully functional with dark/light mode toggle.
-        </p>
+        <br />
+        <div style={{
+          borderRadius:"10px",
+          backgroundColor:isDarkMode ? "#1a1a1a" : "#f5f5f5",
+          width:"65%",
+          paddingTop:"20px",
+          display:"flex",
+          flexDirection:"row"
+          }}>
+          <AIChatInput />
+        </div>
       </div>
     </div>
   );
