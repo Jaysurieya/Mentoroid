@@ -194,7 +194,10 @@ function Dashboard() {
           width:"65%",
           paddingTop:"20px",
           display:"flex",
-          flexDirection:"row"
+          flexDirection:"column",
+          height: "80vh",
+          minHeight: "400px",
+          overflow: "hidden"
           }}>
           <AIChatInput />
         </div>

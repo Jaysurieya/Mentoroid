@@ -4,14 +4,15 @@ import * as React from "react"
 import { useState, useEffect, useRef } from "react";
 import { Lightbulb, Mic, Globe, Paperclip, Send } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import ParticleTextEffect from "./ParticleTextEffect";
+import { BGPattern } from './Background'; 
 
 const PLACEHOLDERS = [
-  "Generate website with HextaUI",
-  "Create a new project with Next.js",
-  "What is the meaning of life?",
-  "What is the best way to learn React?",
-  "How to cook a delicious meal?",
-  "Summarize this article",
+  "Clear your doubts with Mentoroid",
+  "Summarize your notes effectively",
+  "Clear your doubts",
+  "want to learn something new?",
+  "want to learn the courses offered by Mentoroid?",
 ];
 
 // Messages/history panel
@@ -25,7 +26,22 @@ const ChatHistory = ({ messages, isAssistantThinking }) => {
   }, [messages, isAssistantThinking]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex-1 px-4 pt-4 overflow-y-auto" ref={listRef} style={{ minHeight: 0 }}>
+    <div className="w-full max-w-3xl mx-auto flex-1 px-4 pt-4 overflow-y-auto relative" ref={listRef} style={{ minHeight: 0 }}>
+      {/* Centered onboarding message when there is no history */}
+
+      
+      {messages.length === 0 && !isAssistantThinking && (
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none px-8"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+        
+        <ParticleTextEffect />
+        </motion.div>
+      )}
+
       <div className="flex flex-col gap-3">
         {messages.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -199,7 +215,7 @@ const ChatComposer = ({ onSend }) => {
         <div className="flex gap-3 items-center">
           <button
             className={`flex items-center gap-1 px-4 py-2 rounded-full transition-all font-medium group ${
-              thinkActive ? "bg-blue-600/10 outline outline-blue-600/60 text-blue-950" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              thinkActive ? "bg-gray-600/10 outline outline-gray-600 text-gray-50" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
             title="Think"
             type="button"
@@ -214,7 +230,7 @@ const ChatComposer = ({ onSend }) => {
 
           <motion.button
             className={`flex items-center px-4 gap-1 py-2 rounded-full transition font-medium whitespace-nowrap overflow-hidden justify-start  ${
-              deepSearchActive ? "bg-blue-600/10 outline outline-blue-600/60 text-blue-950" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              deepSearchActive ? "bg-gray-600/10 outline outline-gray-600 text-gray-50" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
             title="Deep Search"
             type="button"
@@ -263,9 +279,10 @@ const AIChatInput = () => {
   };
 
   return (
-    <div className="w-full min-h-screen flex flex-col items-center text-black">
+    <div className="w-full h-screen overflow-hidden flex flex-col items-center text-black">
+      
       {/* History area */}
-      <div className="flex-1 w-full flex">
+      <div className="flex-1 w-full flex min-h-0">
         <ChatHistory messages={messages} isAssistantThinking={isAssistantThinking} />
       </div>
 
