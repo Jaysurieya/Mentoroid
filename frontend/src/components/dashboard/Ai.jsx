@@ -1,5 +1,5 @@
 "use client"
-//
+
 import * as React from "react"
 import { useState, useEffect, useRef } from "react";
 import { Lightbulb, Mic, Globe, Paperclip, Send } from "lucide-react";
