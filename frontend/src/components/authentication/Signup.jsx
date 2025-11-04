@@ -1,4 +1,4 @@
-//final authentication 
+//final authentication page 
 import { AuthPage } from "./Authpage";
 
 function Signup() {
