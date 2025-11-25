@@ -100,8 +100,7 @@ function Dashboard() {
 
         {/* Navigation Items */}
         <nav style={{ flex: 1, padding: '8px 12px' }}>
-          <NavItem icon={<Home size={20} />} label="Dashboard" isDarkMode={isDarkMode} isExpanded={isExpanded} />
-          <NavItem icon={<BarChart3 size={20} />} label="Revenue" isDarkMode={isDarkMode} isExpanded={isExpanded} />
+          <NavItem icon={<Home size={20} />} label="Dashboard" isDarkMode={isDarkMode} isExpanded={isExpanded} /> 
           <NavItem icon={<Bell size={20} />} label="Notifications" isDarkMode={isDarkMode} isExpanded={isExpanded} />
           <NavItem icon={<PieChart size={20} />} label="Analytics" isDarkMode={isDarkMode} isExpanded={isExpanded} />
           <NavItem icon={<Package size={20} />} label="Inventory" isDarkMode={isDarkMode} isExpanded={isExpanded} />
@@ -188,7 +187,7 @@ function Dashboard() {
           Welcome to Your Dashboard
         </h1>
         <br />
-        <div style={{
+        {/* <div style={{
           borderRadius:"10px",
           backgroundColor:isDarkMode ? "#1a1a1a" : "#f5f5f5",
           width:"65%",
@@ -200,7 +199,7 @@ function Dashboard() {
           overflow: "hidden"
           }}>
           <AIChatInput />
-        </div>
+        </div> */}
       </div>
     </div>
   );
