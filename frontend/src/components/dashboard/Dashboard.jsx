@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Home, Search, BarChart3, Bell, PieChart, Package, LogOut , GraduationCap, Sun ,Moon } from 'lucide-react';
 import AIChatInput from './Ai';
+import TextType from './Texttype';
 
 function Dashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -178,15 +179,7 @@ function Dashboard() {
         transition: 'all 0.3s ease',
         marginLeft: '80px'
       }}>
-        <h1 style={{
-          fontSize: '32px',
-          fontWeight: '700',
-          color: isDarkMode ? '#ffffff' : '#0a0a0a',
-          marginBottom: '16px'
-        }}>
-          Welcome to Your Dashboard
-        </h1>
-        <br />
+        
         {/* <div style={{
           borderRadius:"10px",
           backgroundColor:isDarkMode ? "#1a1a1a" : "#f5f5f5",
@@ -200,6 +193,28 @@ function Dashboard() {
           }}>
           <AIChatInput />
         </div> */}
+        <div  style={{display: 'flex', flexDirection: 'row'}}>
+          <div style={{display: 'flex', flexDirection: 'column'}}>
+            <h1 style={{
+              fontSize: '32px',
+              fontWeight: '700',
+              color: isDarkMode ? '#ffffff' : '#0a0a0a',
+              marginBottom: '8px'
+            }}>
+              HELLO, USER
+            </h1>
+            <TextType 
+                text={["Hello, Welcome to Mentoroid!","Your AI-Powered Learning Companion.","Empowering Your Learning Journey."]}
+                typingSpeed={10}
+                pauseDuration={1500}
+                showCursor={true}
+                cursorCharacter="|"
+                textColors={["#8b5cf6"]}
+              />
+            <br />
+          </div>
+          
+        </div>
       </div>
     </div>
   );
