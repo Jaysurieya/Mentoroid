@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Home, Search, BarChart3, Bell, PieChart, Package, LogOut , GraduationCap, Sun ,Moon } from 'lucide-react';
 import AIChatInput from './Ai';
 import TextType from './Texttype';
+import Calendar from './Calendar';
 
 function Dashboard() {
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -212,6 +213,7 @@ function Dashboard() {
                 textColors={["#8b5cf6"]}
               />
             <br />
+            <Calendar />
           </div>
           
         </div>
