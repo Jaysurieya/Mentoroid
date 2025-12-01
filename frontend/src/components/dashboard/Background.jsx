@@ -1,4 +1,4 @@
-// Utility function to merge class names (replaces cn from @/lib/utils)
+
 function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
