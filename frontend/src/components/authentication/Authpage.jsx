@@ -1,12 +1,100 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Button } from "./Button";
-
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "../../lib/firebase";
+import { useNavigate } from "react-router-dom";
 import { ChevronLeftIcon, GithubIcon, GraduationCap } from "lucide-react";
-import { Input } from "./input";
+import { Input } from "./Input";
 import {cn} from "../../lib/utils";
 
 export function AuthPage() {
+
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+
+  const [isAuthProcessing, setIsAuthProcessing] = React.useState(false);
+  const [authError, setAuthError] = React.useState(null);
+  const [showSuccess, setShowSuccess] = React.useState(false);
+  const navigate = useNavigate();
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log("clicked");
+      setIsAuthProcessing(true);
+      setAuthError(null);
+
+      const result = await signInWithPopup(auth, googleProvider);
+
+      // 🔑 Firebase ID token
+      const idToken = await result.user.getIdToken();
+
+      // 📡 Send token to backend
+      const res = await fetch("http://localhost:5000/api/auth/google", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: idToken }),
+      });
+
+      const data = await res.json();
+      console.log(data);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.message || "Google signup failed");
+      }
+
+      // 🪙 Save JWT and navigate based on user status
+      localStorage.setItem("fitmate_token", data.token);
+      setShowSuccess(true);
+      if (data.isNewUser) {
+        navigate("/details");
+      } else {
+        navigate("/dashboard");
+      }
+
+    } catch (error) {
+      setAuthError(error?.message || 'Google signup failed');
+    } finally {
+      setIsAuthProcessing(false);
+    }
+};
+
+  const handleEmailAuth = async () => {
+      try {
+        setIsAuthProcessing(true);
+        setAuthError(null);
+
+        const res = await fetch("http://localhost:5000/api/auth/email-auth", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json();
+        console.log(data);
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Authentication failed");
+        }
+
+        localStorage.setItem("fitmate_token", data.token);
+
+        if (data.isNewUser) {
+          navigate("/details");      // 🆕 new user
+        } else {
+          navigate("/dashboard");   // 👤 existing user
+        }
+
+      } catch (err) {
+        setAuthError(err.message || 'Authentication failed');
+      } finally {
+        setIsAuthProcessing(false);
+      }
+  };
+
   return (
     <main className="relative md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
       <div className="bg-muted/60 relative hidden h-full flex-col border-r p-10 lg:flex">
@@ -58,7 +146,7 @@ export function AuthPage() {
             </p>
           </div>
           <div className="space-y-2">
-            <Button type="button" size="lg" className="w-full bg-black">
+            <Button type="button" size="lg" className="w-full bg-black" onClick={handleGoogleLogin}>
               <GoogleIcon className="size-4 me-2" color="white"/>
               <span style={{color:"white"}}>Continue with Google</span>
             </Button>
@@ -78,18 +166,28 @@ export function AuthPage() {
               <div style={{ paddingBottom: "0.5rem" }}>
                 <Input
                   placeholder="your.email@example.com"
-                  className="peer ps-9"
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isAuthProcessing}
                 />
               </div>
               <Input
                 placeholder="your password"
-                className="peer ps-9"
                 type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isAuthProcessing}
               />
             </div>
 
-            <Button type="button" className="w-full bg-black">
+            <Button 
+            type="button" 
+            className="w-full bg-black"
+            onClick={handleEmailAuth}
+            disabled={isAuthProcessing}
+            style={{ cursor: "pointer" }}
+            >
               <span style={{color:"white"}}>Continue With Email</span>
             </Button>
           </form>
