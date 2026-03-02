@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const admin = require("../Config/FirebaseAdmin.js");
-const User = require('../Models/mongooseSchema');
+const User = require('../Models/MongooseSchema');
 // const TokenBlacklist = require('../Models/TokenBlacklist');
 
 

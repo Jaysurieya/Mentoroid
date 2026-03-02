@@ -1,5 +1,5 @@
 import React from "react";
-import "./css/Calendar.css"; // <- make sure to create this file
+import "./css/calendar.css";
 
 const Calendar = () => {
   const today = new Date();

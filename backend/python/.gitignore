@@ -1,0 +1,58 @@
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# Pytest / test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy / type checkers
+.mypy_cache/
+.dmypy.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ChromaDB vector store (persisted data — do not commit)
+chroma_store/
+
+# Numpy vector store fallback
+vector_store/
+
+# Uploaded files
+uploads/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

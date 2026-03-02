@@ -8,6 +8,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const authRoutes = require('./Routes/authRoutes.js');
+const materialRoutes = require('./Routes/materialRoutes.js');
 const { auth } = require('firebase-admin');
 const connectDB = require('./Mongoconnect');
 
@@ -27,6 +28,8 @@ app.use(express.json());
 
 
 app.use('/api/auth', authRoutes);
+app.use('/api/materials', materialRoutes);
+app.use('/api/rag', materialRoutes);   // /api/rag/query also handled
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
