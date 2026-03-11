@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
-  // Email is still important
   email: {
     type: String,
     required: true,
@@ -11,14 +10,24 @@ const userSchema = new mongoose.Schema({
   // Password only for email/password users
   password: {
     type: String,
-    required: false, // 🔑 Google users won’t have password
+    required: false,
   },
 
-  // 🔥 Firebase permanent user identity
+  // Firebase permanent user identity
   firebaseUid: {
     type: String,
     unique: true,
-    sparse: true, // allows null for non-google users
+    sparse: true,
+  },
+
+  // Profile info (populated from Firebase token or set manually)
+  name: {
+    type: String,
+    default: "",
+  },
+  photoURL: {
+    type: String,
+    default: "",
   },
 
   // How user signed up

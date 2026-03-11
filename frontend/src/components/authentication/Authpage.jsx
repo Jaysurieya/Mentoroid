@@ -6,7 +6,7 @@ import { auth, googleProvider } from "../../lib/firebase";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeftIcon, GithubIcon, GraduationCap } from "lucide-react";
 import { Input } from "./Input";
-import {cn} from "../../lib/utils";
+import { cn } from "../../lib/utils";
 
 export function AuthPage() {
 
@@ -58,52 +58,54 @@ export function AuthPage() {
     } finally {
       setIsAuthProcessing(false);
     }
-};
+  };
 
   const handleEmailAuth = async () => {
-      try {
-        setIsAuthProcessing(true);
-        setAuthError(null);
+    try {
+      setIsAuthProcessing(true);
+      setAuthError(null);
 
-        const res = await fetch("http://localhost:5000/api/auth/email-auth", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-        });
+      const res = await fetch("http://localhost:5000/api/auth/email-auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-        const data = await res.json();
-        console.log(data);
+      const data = await res.json();
+      console.log(data);
 
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || "Authentication failed");
-        }
-
-        localStorage.setItem("fitmate_token", data.token);
-
-        if (data.isNewUser) {
-          navigate("/details");      // 🆕 new user
-        } else {
-          navigate("/dashboard");   // 👤 existing user
-        }
-
-      } catch (err) {
-        setAuthError(err.message || 'Authentication failed');
-      } finally {
-        setIsAuthProcessing(false);
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Authentication failed");
       }
+
+      localStorage.setItem("fitmate_token", data.token);
+
+      if (data.isNewUser) {
+        navigate("/details");      // 🆕 new user
+      } else {
+        navigate("/dashboard");   // 👤 existing user
+      }
+
+    } catch (err) {
+      setAuthError(err.message || 'Authentication failed');
+    } finally {
+      setIsAuthProcessing(false);
+    }
   };
 
   return (
     <main className="relative md:h-screen md:overflow-hidden lg:grid lg:grid-cols-2">
-      <div className="bg-muted/60 relative hidden h-full flex-col border-r p-10 lg:flex">
+      <div className="bg-muted/60 relative hidden min-h-screen flex-col justify-between border-r p-10 lg:flex">
         <div className="from-background absolute inset-0 z-10 bg-gradient-to-t to-transparent" />
+        {/* Logo pinned to top */}
         <div className="z-10 flex items-center gap-2">
           <GraduationCap className="size-6" />
           <p className="text-xl font-semibold">Mentoroid</p>
         </div>
-        <div className="z-10 mt-auto">
+        {/* Quote pinned to bottom */}
+        <div className="z-10">
           <blockquote className="space-y-2">
             <p className="text-xl">
               &ldquo;Give your textbooks a voice.
@@ -117,7 +119,7 @@ export function AuthPage() {
           <FloatingPaths position={-1} />
         </div>
       </div>
-      <div className="relative flex min-h-screen flex-col justify-center p-4">
+      <div className="relative flex min-h-screen flex-col items-center justify-center p-4">
         <div
           aria-hidden
           className="absolute inset-0 isolate contain-strict -z-10 opacity-60"
@@ -132,7 +134,7 @@ export function AuthPage() {
             Home
           </a>
         </Button>
-        <div className="mx-auto space-y-4 sm:w-sm">
+        <div className="w-full max-w-sm space-y-6">
           <div className="flex items-center gap-2 lg:hidden">
             <GraduationCap className="size-6" />
             <p className="text-xl font-semibold">Mentoroid</p>
@@ -145,50 +147,50 @@ export function AuthPage() {
               login or create your Mentoroid account.
             </p>
           </div>
-          <div className="space-y-2">
+          {authError && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              {authError}
+            </div>
+          )}
+          <div className="flex flex-col gap-3">
             <Button type="button" size="lg" className="w-full bg-black" onClick={handleGoogleLogin}>
-              <GoogleIcon className="size-4 me-2" color="white"/>
-              <span style={{color:"white"}}>Continue with Google</span>
+              <GoogleIcon className="size-4 me-2" color="white" />
+              <span style={{ color: "white" }}>Continue with Google</span>
             </Button>
             <Button type="button" size="lg" className="w-full bg-black">
-              <GithubIcon className="size-4 me-2" color="white"/>
-              <span style={{color:"white"}}>Continue with GitHub</span>
+              <GithubIcon className="size-4 me-2" color="white" />
+              <span style={{ color: "white" }}>Continue with GitHub</span>
             </Button>
           </div>
 
           <AuthSeparator />
 
-          <form className="space-y-2">
+          <form className="flex flex-col gap-3">
             <p className="text-muted-foreground text-start text-xs">
               Enter your email address to sign in or create an account
             </p>
-            <div className="relative h-max">
-              <div style={{ paddingBottom: "0.5rem" }}>
-                <Input
-                  placeholder="your.email@example.com"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isAuthProcessing}
-                />
-              </div>
-              <Input
-                placeholder="your password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isAuthProcessing}
-              />
-            </div>
-
-            <Button 
-            type="button" 
-            className="w-full bg-black"
-            onClick={handleEmailAuth}
-            disabled={isAuthProcessing}
-            style={{ cursor: "pointer" }}
+            <Input
+              placeholder="your.email@example.com"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isAuthProcessing}
+            />
+            <Input
+              placeholder="your password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isAuthProcessing}
+            />
+            <Button
+              type="button"
+              className="w-full bg-black"
+              onClick={handleEmailAuth}
+              disabled={isAuthProcessing}
+              style={{ cursor: "pointer" }}
             >
-              <span style={{color:"white"}}>Continue With Email</span>
+              <span style={{ color: "white" }}>Continue With Email</span>
             </Button>
           </form>
           <p className="text-muted-foreground mt-8 text-sm">
@@ -217,13 +219,10 @@ export function AuthPage() {
 function FloatingPaths({ position }) {
   const paths = Array.from({ length: 36 }, (_, i) => ({
     id: i,
-    d: `M-${380 - i * 5 * position} -${189 + i * 6}C-${
-      380 - i * 5 * position
-    } -${189 + i * 6} -${312 - i * 5 * position} ${216 - i * 6} ${
-      152 - i * 5 * position
-    } ${343 - i * 6}C${616 - i * 5 * position} ${470 - i * 6} ${
-      684 - i * 5 * position
-    } ${875 - i * 6} ${684 - i * 5 * position} ${875 - i * 6}`,
+    d: `M-${380 - i * 5 * position} -${189 + i * 6}C-${380 - i * 5 * position
+      } -${189 + i * 6} -${312 - i * 5 * position} ${216 - i * 6} ${152 - i * 5 * position
+      } ${343 - i * 6}C${616 - i * 5 * position} ${470 - i * 6} ${684 - i * 5 * position
+      } ${875 - i * 6} ${684 - i * 5 * position} ${875 - i * 6}`,
     color: `rgba(15,23,42,${0.1 + i * 0.03})`,
     width: 0.5 + i * 0.03,
   }));

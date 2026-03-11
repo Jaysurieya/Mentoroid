@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-const TokenBlacklist = require('../Models/TokenBlacklist');
 
 module.exports = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -12,13 +11,6 @@ module.exports = async (req, res, next) => {
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ message: 'JWT secret not configured' });
     }
-
-    // Check blacklist first
-    const blacklisted = await TokenBlacklist.findOne({ token }).lean();
-    if (blacklisted) {
-      return res.status(401).json({ message: 'Token has been revoked' });
-    }
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = { id: decoded.id };
     next();
