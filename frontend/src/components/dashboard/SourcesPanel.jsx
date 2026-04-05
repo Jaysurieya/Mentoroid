@@ -2,7 +2,7 @@
 // Full upload-capable Sources panel for Mentoroid RAG
 // Supports: PDF, images, DOCX, PPTX, TXT files + YouTube/website URLs
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
     Plus, Check, FileText, Layers, X, Link, Youtube,
     Globe, Upload, Loader, AlertCircle, ChevronDown, Trash2,
@@ -11,9 +11,6 @@ import {
 
 // ── API base (Node.js backend) ─────────────────────────────
 const API_BASE = "http://localhost:5000/api";
-
-// Demo student ID — replace with real Firebase UID from auth context
-const DEMO_STUDENT_ID = "student_demo_001";
 
 // ── File type → icon + color ───────────────────────────────
 function SourceIcon({ sourceType, size = 13 }) {
@@ -155,7 +152,7 @@ function AddSourceModal({ onClose, onAdd }) {
 }
 
 // ── Main SourcesPanel ──────────────────────────────────────
-export default function SourcesPanel({ onSourcesChange }) {
+export default function SourcesPanel({ onSourcesChange, sessionId, authToken }) {
     const [sources, setSources] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [error, setError] = useState("");
@@ -168,8 +165,36 @@ export default function SourcesPanel({ onSourcesChange }) {
         });
     }, [onSourcesChange]);
 
+    // Load materials from session when sessionId changes
+    useEffect(() => {
+        if (!sessionId || !authToken) { setSources([]); return; }
+        fetch(`${API_BASE}/materials/session/${sessionId}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.materials) {
+                    const loaded = data.materials.map(m => ({
+                        id: m.materialId,
+                        name: m.title,
+                        source_type: m.sourceType,
+                        status: m.status || "ready",
+                        checked: true,
+                        chunk_count: m.chunkCount || 0,
+                    }));
+                    setSources(loaded);
+                    onSourcesChange?.(loaded.filter(s => s.status === "ready"));
+                } else {
+                    setSources([]);
+                }
+            })
+            .catch(() => setSources([]));
+    }, [sessionId, authToken, onSourcesChange]);
+
     // ── Upload / ingest a single source ───────────────────────
     const handleAdd = useCallback(async ({ type, file, url, title }) => {
+        if (!sessionId || !authToken) return;
+
         const tempId = `tmp_${Date.now()}_${Math.random()}`;
         const displayName = type === "file" ? file.name : (title || url);
 
@@ -192,9 +217,13 @@ export default function SourcesPanel({ onSourcesChange }) {
             let result;
             if (type === "file") {
                 const form = new FormData();
-                form.append("student_id", DEMO_STUDENT_ID);
+                form.append("session_id", sessionId);
                 form.append("file", file);
-                const res = await fetch(`${API_BASE}/materials/upload`, { method: "POST", body: form });
+                const res = await fetch(`${API_BASE}/materials/upload`, { 
+                    method: "POST", 
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    body: form 
+                });
                 if (!res.ok) {
                     const err = await res.json();
                     throw new Error(err.error || "Upload failed");
@@ -202,10 +231,14 @@ export default function SourcesPanel({ onSourcesChange }) {
                 result = await res.json();
             } else {
                 const form = new FormData();
-                form.append("student_id", DEMO_STUDENT_ID);
+                form.append("session_id", sessionId);
                 form.append("url", url);
                 if (title) form.append("title", title);
-                const res = await fetch(`${API_BASE}/materials/url`, { method: "POST", body: form });
+                const res = await fetch(`${API_BASE}/materials/url`, { 
+                    method: "POST", 
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    body: form 
+                });
                 if (!res.ok) {
                     const err = await res.json();
                     throw new Error(err.error || "URL ingestion failed");
@@ -232,7 +265,7 @@ export default function SourcesPanel({ onSourcesChange }) {
                 s.id === tempId ? { ...s, status: "error" } : s
             ));
         }
-    }, [updateSources]);
+    }, [updateSources, sessionId, authToken]);
 
     // ── Toggle checked ─────────────────────────────────────────
     const toggle = useCallback((id) => {
@@ -244,12 +277,13 @@ export default function SourcesPanel({ onSourcesChange }) {
         e.stopPropagation();
         updateSources(prev => prev.map(s => s.id === id ? { ...s, status: "deleting" } : s));
         try {
-            if (!id.startsWith("tmp_")) {
-                // Always send student_id so Python can delete from ChromaDB
-                // even after a server restart (when its in-memory registry is empty)
+            if (!id.startsWith("tmp_") && sessionId) {
                 await fetch(
-                    `${API_BASE}/materials/${id}?student_id=${encodeURIComponent(DEMO_STUDENT_ID)}`,
-                    { method: "DELETE" }
+                    `${API_BASE}/materials/${id}?session_id=${encodeURIComponent(sessionId)}`,
+                    { 
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${authToken}` }
+                    }
                 );
             }
         } catch (err) {

@@ -1,0 +1,6 @@
+{
+    "python.defaultInterpreterPath": "/home/kratos/Projects/MENTOROID/backend/python/venv/bin/python",
+    "python.analysis.extraPaths": [
+        "/home/kratos/Projects/MENTOROID/backend/python/venv/lib/python3.14/site-packages"
+    ]
+}

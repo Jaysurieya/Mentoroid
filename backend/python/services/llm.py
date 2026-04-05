@@ -9,13 +9,14 @@ Controlled by LLM_BACKEND in .env:  "ollama_cloud" | "ollama_local" | "gemini"
 """
 
 import os
+from typing import List, Dict
 
 LLM_BACKEND          = os.getenv("LLM_BACKEND", "ollama_cloud")
 OLLAMA_API_KEY       = os.getenv("OLLAMA_API_KEY", "")
 OLLAMA_CLOUD_BASE_URL= os.getenv("OLLAMA_CLOUD_BASE_URL", "https://api.ollama.com")
-OLLAMA_CLOUD_MODEL   = os.getenv("OLLAMA_CLOUD_MODEL", "llama3.2-vision:90b-instruct")
+OLLAMA_CLOUD_MODEL   = os.getenv("OLLAMA_CLOUD_MODEL", "qwen3.5:397b-cloud")
 OLLAMA_LOCAL_URL     = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_LOCAL_MODEL   = os.getenv("OLLAMA_MODEL", "llama3.2")
+OLLAMA_LOCAL_MODEL   = os.getenv("OLLAMA_MODEL", "qwen3.5:397b-cloud")
 GEMINI_API_KEY       = os.getenv("GEMINI_API_KEY", "")
 
 
@@ -32,7 +33,7 @@ Rules:
 """
 
 
-def _build_prompt(question: str, chunks: list[dict]) -> str:
+def _build_prompt(question: str, chunks: List[Dict]) -> str:
     context_parts = []
     for i, chunk in enumerate(chunks, 1):
         meta   = chunk.get("metadata", {})
@@ -45,7 +46,7 @@ def _build_prompt(question: str, chunks: list[dict]) -> str:
 
 
 # ── Ollama Cloud ──────────────────────────────────────────────
-def _answer_ollama_cloud(question: str, chunks: list[dict]) -> str:
+def _answer_ollama_cloud(question: str, chunks: List[Dict]) -> str:
     from ollama import Client
     client = Client(
         host=OLLAMA_CLOUD_BASE_URL,
@@ -63,7 +64,7 @@ def _answer_ollama_cloud(question: str, chunks: list[dict]) -> str:
 
 
 # ── Ollama Local ──────────────────────────────────────────────
-def _answer_ollama_local(question: str, chunks: list[dict]) -> str:
+def _answer_ollama_local(question: str, chunks: List[Dict]) -> str:
     from ollama import Client
     client = Client(host=OLLAMA_LOCAL_URL)
     user_prompt = _build_prompt(question, chunks)
@@ -78,7 +79,7 @@ def _answer_ollama_local(question: str, chunks: list[dict]) -> str:
 
 
 # ── Gemini ────────────────────────────────────────────────────
-def _answer_gemini(question: str, chunks: list[dict]) -> str:
+def _answer_gemini(question: str, chunks: List[Dict]) -> str:
     import google.generativeai as genai
     genai.configure(api_key=GEMINI_API_KEY)
     model  = genai.GenerativeModel("gemini-1.5-flash")
@@ -87,7 +88,7 @@ def _answer_gemini(question: str, chunks: list[dict]) -> str:
 
 
 # ── Public API ────────────────────────────────────────────────
-def generate_answer(question: str, chunks: list[dict]) -> str:
+def generate_answer(question: str, chunks: List[Dict]) -> str:
     if not chunks:
         return "I couldn't find any relevant content in your uploaded materials for this question."
 

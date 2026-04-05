@@ -30,6 +30,26 @@ const userSchema = new mongoose.Schema({
     default: "",
   },
 
+  phone: {
+    type: String,
+    default: "",
+  },
+
+  bio: {
+    type: String,
+    default: "",
+  },
+
+  location: {
+    type: String,
+    default: "",
+  },
+
+  coverPhoto: {
+    type: String,
+    default: "",
+  },
+
   // How user signed up
   provider: {
     type: String,

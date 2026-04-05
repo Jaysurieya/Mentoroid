@@ -4,13 +4,25 @@ import {
   Sun, Moon, Send, Paperclip, Mic, Plus,
   Headphones, Film, Map, FileText, Layers, BarChart2,
   HelpCircle, Table, Zap, Users, Bot, Search,
-  Check, Play, ChevronLeft, MoreHorizontal
+  Check, Play, ChevronLeft, MoreHorizontal, ShieldUser,
+  Trash2, Pencil, MessageSquare
 } from "lucide-react";
 import TextType from "./Texttype";
 import SourcesPanel from "./SourcesPanel";
 import "./css/notebook.css";
+import { useNavigate } from "react-router-dom";
 
 /* ─────────────── constants ─────────────── */
+
+const NODE_API = "http://localhost:5000/api";
+
+// Decode JWT payload without a library (browser-safe)
+function decodeToken(token) {
+  try {
+    const payload = token.split(".")[1];
+    return JSON.parse(atob(payload));
+  } catch { return null; }
+}
 
 const AVATAR_COLORS = [
   "#7c3aed", "#2563eb", "#0891b2", "#059669",
@@ -109,9 +121,6 @@ function StudioPanel() {
 
 /* ═══════════════ AI Chat ═══════════════ */
 
-const NODE_API = "http://localhost:5000/api";
-const DEMO_STUDENT_ID = "student_demo_001"; // replace with Firebase UID after auth wiring
-
 // Source citation chip shown below an AI answer
 function SourceChip({ source, index }) {
   const [expanded, setExpanded] = useState(false);
@@ -137,13 +146,38 @@ function SourceChip({ source, index }) {
   );
 }
 
-function AIChatPanel({ activeSources }) {
+function AIChatPanel({ activeSources, sessionId, authToken }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState("");
+  const [chatLoaded, setChatLoaded] = useState(false);
   const endRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // Load chat history when session changes
+  useEffect(() => {
+    if (!sessionId || !authToken) { setMessages([]); setChatLoaded(true); return; }
+    setChatLoaded(false);
+    fetch(`${NODE_API}/sessions/${sessionId}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.session.chatHistory) {
+          setMessages(data.session.chatHistory.map((m, i) => ({
+            id: m._id || i,
+            role: m.role,
+            content: m.content,
+            sources: m.sources || [],
+          })));
+        } else {
+          setMessages([]);
+        }
+      })
+      .catch(() => setMessages([]))
+      .finally(() => setChatLoaded(true));
+  }, [sessionId, authToken]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, thinking]);
 
@@ -155,7 +189,7 @@ function AIChatPanel({ activeSources }) {
 
   const send = useCallback(async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || !sessionId) return;
 
     // Add user message
     setMessages(p => [...p, { id: Date.now(), role: "user", content: text, sources: [] }]);
@@ -171,9 +205,12 @@ function AIChatPanel({ activeSources }) {
     try {
       const res = await fetch(`${NODE_API}/rag/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
         body: JSON.stringify({
-          student_id: DEMO_STUDENT_ID,
+          session_id: sessionId,
           question: text,
           material_ids: material_ids.length > 0 ? material_ids : null,
           top_k: 5,
@@ -203,7 +240,7 @@ function AIChatPanel({ activeSources }) {
     } finally {
       setThinking(false);
     }
-  }, [input, activeSources]);
+  }, [input, activeSources, sessionId, authToken]);
 
   const hasActiveSources = (activeSources || []).some(s => s.checked && s.status === "ready");
 
@@ -408,7 +445,7 @@ const TABS = [
   { id: "friends", label: "Friends Chat", icon: <Users size={15} /> },
 ];
 
-function CenterPanel({ activeTab, setActiveTab, selectedFriend, activeSources }) {
+function CenterPanel({ activeTab, setActiveTab, selectedFriend, activeSources, sessionId, authToken }) {
   return (
     <>
       {/* ── Tab bar ── */}
@@ -428,7 +465,13 @@ function CenterPanel({ activeTab, setActiveTab, selectedFriend, activeSources })
 
       {/* ── Tab content ── */}
       <div className="nb-tab-content" key={activeTab}>
-        {activeTab === "ai" && <AIChatPanel activeSources={activeSources} />}
+        {activeTab === "ai" && (
+          <AIChatPanel
+            activeSources={activeSources}
+            sessionId={sessionId}
+            authToken={authToken}
+          />
+        )}
 
         {activeTab === "friends" && (
           selectedFriend
@@ -552,29 +595,153 @@ function NavIcon({ icon, label, active, onClick }) {
   );
 }
 
+/* ═══════════════ Session Panel ═══════════════ */
+
+function SessionPanel({ sessions, activeSessionId, onSelect, onCreate, onDelete, loading }) {
+  const [editingId, setEditingId] = useState(null);
+  return (
+    <div className="nb-studio">
+      <div className="nb-panel-header">
+        <span className="nb-panel-title">Sessions</span>
+        <button className="nb-panel-action" onClick={onCreate} title="New session">
+          <Plus size={15} />
+        </button>
+      </div>
+      <div className="nb-studio-body" style={{ padding: "6px 0" }}>
+        {loading && <div style={{ textAlign: "center", padding: 12, fontSize: 12, color: "#6b7280" }}>Loading…</div>}
+        {!loading && sessions.length === 0 && (
+          <div style={{ textAlign: "center", padding: 18, fontSize: 12, color: "#4b5563" }}>No sessions yet</div>
+        )}
+        {sessions.map(s => (
+          <div
+            key={s.id}
+            className={`nb-session-item ${s.id === activeSessionId ? "nb-session-item-active" : ""}`}
+            onClick={() => onSelect(s.id)}
+            style={{ cursor: "pointer" }}
+          >
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.id === activeSessionId ? "#7c3aed" : "#3f3f46", flexShrink: 0 }} />
+            <div className="nb-session-info" style={{ flex: 1, minWidth: 0 }}>
+              <div className="nb-session-name">{s.title}</div>
+              <div className="nb-session-meta">
+                {s.materialCount} sources · {s.messageCount} msgs
+              </div>
+            </div>
+            <button
+              className="src-delete-btn"
+              onClick={e => { e.stopPropagation(); onDelete(s.id); }}
+              title="Delete session"
+              style={{ opacity: 0.5, flexShrink: 0 }}
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════ Dashboard Root ═══════════════ */
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [friendsOpen, setFriendsOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("ai");       // "ai" | "friends"
+  const [activeTab, setActiveTab] = useState("ai");
   const [selectedFriend, setSelectedFriend] = useState(null);
-  const [activeSources, setActiveSources] = useState([]);  // ready+checked sources for RAG
+  const [activeSources, setActiveSources] = useState([]);
 
-  /* Clicking a friend from sidebar → switch tab + open that chat */
+  // Auth state
+  const [authToken, setAuthToken] = useState(null);
+  const [userId, setUserId] = useState(null);
+
+  // Session state
+  const [sessions, setSessions] = useState([]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+
+  // On mount: extract userId from JWT, load sessions
+  useEffect(() => {
+    const token = localStorage.getItem("fitmate_token");
+    if (!token) { navigate("/signup"); return; }
+    setAuthToken(token);
+    const decoded = decodeToken(token);
+    if (decoded?.id) setUserId(decoded.id);
+
+    // Fetch sessions
+    fetch(`${NODE_API}/sessions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(async (data) => {
+        if (data.success && data.sessions.length > 0) {
+          setSessions(data.sessions);
+          setActiveSessionId(data.sessions[0].id);
+        } else {
+          // Auto-create first session
+          const res = await fetch(`${NODE_API}/sessions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ title: "Session 1" }),
+          });
+          const created = await res.json();
+          if (created.success) {
+            setSessions([created.session]);
+            setActiveSessionId(created.session.id);
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setSessionsLoading(false));
+  }, [navigate]);
+
+  const handleCreateSession = useCallback(async () => {
+    if (!authToken) return;
+    const title = `Session ${sessions.length + 1}`;
+    try {
+      const res = await fetch(`${NODE_API}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ title }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSessions(prev => [data.session, ...prev]);
+        setActiveSessionId(data.session.id);
+      }
+    } catch (err) { console.error("Create session failed:", err); }
+  }, [authToken, sessions.length]);
+
+  const handleDeleteSession = useCallback(async (id) => {
+    if (!authToken) return;
+    try {
+      await fetch(`${NODE_API}/sessions/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      setSessions(prev => prev.filter(s => s.id !== id));
+      if (activeSessionId === id) {
+        setSessions(prev => {
+          if (prev.length > 0) setActiveSessionId(prev[0].id);
+          else setActiveSessionId(null);
+          return prev;
+        });
+      }
+    } catch (err) { console.error("Delete session failed:", err); }
+  }, [authToken, activeSessionId]);
+
   const handleSidebarFriendSelect = (friend) => {
     setSelectedFriend(friend);
     setActiveTab("friends");
   };
 
-  /* Nav "Friends" icon → switch to friends tab (show list) */
-  const handleNavFriends = () => {
-    setActiveTab("friends");
-  };
+  const handleNavFriends = () => { setActiveTab("friends"); };
+  const handleNavAI = () => { setActiveTab("ai"); };
 
-  /* Nav "AI Chat" icon → switch to AI tab */
-  const handleNavAI = () => {
-    setActiveTab("ai");
+  const handleLogout = () => {
+    localStorage.removeItem("fitmate_token");
+    navigate("/signup");
   };
 
   return (
@@ -592,6 +759,7 @@ export default function Dashboard() {
         <NavIcon icon={<Bell size={18} />} label="Notifications" />
         <NavIcon icon={<PieChart size={18} />} label="Analytics" />
         <NavIcon icon={<Package size={18} />} label="Inventory" />
+        <NavIcon icon={<ShieldUser size={18} />} label="Profile" onClick={() => navigate("/profile")} />
 
         <div className="nb-spacer" />
 
@@ -600,7 +768,7 @@ export default function Dashboard() {
           label={isDarkMode ? "Light mode" : "Dark mode"}
           onClick={() => setIsDarkMode(d => !d)}
         />
-        <NavIcon icon={<LogOut size={18} />} label="Logout" />
+        <NavIcon icon={<LogOut size={18} />} label="Logout" onClick={handleLogout} />
       </div>
 
       {/* ── Content Area ── */}
@@ -608,8 +776,20 @@ export default function Dashboard() {
 
         {/* ── Left Panel ── */}
         <div className="nb-left-panel">
+          <SessionPanel
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            onSelect={setActiveSessionId}
+            onCreate={handleCreateSession}
+            onDelete={handleDeleteSession}
+            loading={sessionsLoading}
+          />
           <StudioPanel />
-          <SourcesPanel onSourcesChange={setActiveSources} />
+          <SourcesPanel
+            onSourcesChange={setActiveSources}
+            sessionId={activeSessionId}
+            authToken={authToken}
+          />
         </div>
 
         {/* ── Center ── */}
@@ -637,9 +817,10 @@ export default function Dashboard() {
             setActiveTab={setActiveTab}
             selectedFriend={selectedFriend}
             activeSources={activeSources}
+            sessionId={activeSessionId}
+            authToken={authToken}
           />
 
-          {/* Edge toggle pill when sidebar closed */}
           {!friendsOpen && (
             <button className="nb-toggle-sidebar-btn" onClick={() => setFriendsOpen(true)}>
               <ChevronLeft size={12} />

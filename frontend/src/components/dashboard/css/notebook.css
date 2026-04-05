@@ -220,6 +220,12 @@
     color: #e5e7eb;
 }
 
+.nb-session-item-active {
+    background: rgba(124, 58, 237, 0.08);
+    color: #c4b5fd;
+    border-left: 2px solid #7c3aed;
+}
+
 .nb-session-item svg {
     flex-shrink: 0;
     color: #6b7280;
