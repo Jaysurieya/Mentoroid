@@ -5,12 +5,13 @@ import {
   Headphones, Film, Map, FileText, Layers, BarChart2,
   HelpCircle, Table, Zap, Users, Bot, Search,
   Check, Play, ChevronLeft, MoreHorizontal, ShieldUser,
-  Trash2, Pencil, MessageSquare
+  Trash2, Pencil, MessageSquare, UserPlus, CheckCircle, XCircle
 } from "lucide-react";
 import TextType from "./Texttype";
 import SourcesPanel from "./SourcesPanel";
 import "./css/notebook.css";
 import { useNavigate } from "react-router-dom";
+import { getSocket, disconnectSocket } from "../../lib/socket";
 
 /* ─────────────── constants ─────────────── */
 
@@ -49,33 +50,12 @@ const SAVED_SESSIONS = [
 
 const INITIAL_SOURCES = []; // Sources now managed in SourcesPanel.jsx
 
-const FRIENDS = [
-  { name: "Arjun Mehta", activity: "Studying Algorithms", status: "online", color: AVATAR_COLORS[0] },
-  { name: "Priya Sharma", activity: "Last seen 5 min ago", status: "away", color: AVATAR_COLORS[1] },
-  { name: "Rahul Verma", activity: "Solving LeetCode", status: "online", color: AVATAR_COLORS[2] },
-  { name: "Sneha Iyer", activity: "Reading ML Papers", status: "online", color: AVATAR_COLORS[3] },
-  { name: "Karthik Raja", activity: "Offline", status: "offline", color: AVATAR_COLORS[4] },
-  { name: "Divya Nair", activity: "In a study session", status: "online", color: AVATAR_COLORS[5] },
-  { name: "Aditya Kumar", activity: "Last seen 2 hrs ago", status: "offline", color: AVATAR_COLORS[6] },
-];
+function getAvatarColor(id) {
+  let hash = 0;
+  for (let i = 0; i < (String(id) || "").length; i++) hash = String(id).charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
-const GROUPS = [
-  { name: "DSA Grind", members: 5, lastMsg: "Arjun: solved that dp problem 🔥", color: "#7c3aed", status: "online" },
-  { name: "ML Paper Club", members: 4, lastMsg: "Sneha: new paper dropped!", color: "#059669", status: "online" },
-  { name: "React Devs", members: 8, lastMsg: "You: check the new hooks docs", color: "#2563eb", status: "offline" },
-  { name: "Competitive Prog", members: 6, lastMsg: "Karthik: contest tmrw 9AM", color: "#d97706", status: "offline" },
-];
-
-/* seed some mock messages per friend */
-const SEED_MESSAGES = {
-  "Arjun Mehta": [{ id: 1, from: "them", text: "Hey! Did you finish the binary search section?" }, { id: 2, from: "me", text: "Almost — stuck on the rotated array problem 😅" }],
-  "Priya Sharma": [{ id: 1, from: "them", text: "Let me know when you start the ML module!" }],
-  "Rahul Verma": [{ id: 1, from: "me", text: "Rahul, share that LeetCode link?" }, { id: 2, from: "them", text: "Sure! https://leetcode.com/problems/two-sum" }],
-  "Sneha Iyer": [],
-  "Karthik Raja": [{ id: 1, from: "them", text: "Bro I finished the DSA sheet 🔥" }],
-  "Divya Nair": [{ id: 1, from: "them", text: "We're in a study pomodoro session, join?" }],
-  "Aditya Kumar": [],
-};
 
 /* ═══════════════ Left Panels ═══════════════ */
 
@@ -331,17 +311,38 @@ function AIChatPanel({ activeSources, sessionId, authToken }) {
 
 /* ═══════════════ Friends Chat ═══════════════ */
 
-function FriendChatPanel({ friend, onBack }) {
-  const [msgMap, setMsgMap] = useState(() => {
-    const m = {};
-    FRIENDS.forEach(f => { m[f.name] = [...(SEED_MESSAGES[f.name] || [])]; });
-    return m;
-  });
+function FriendChatPanel({ friend, currUserId, authToken, socket }) {
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const endRef = useRef(null);
   const textareaRef = useRef(null);
 
-  const messages = friend ? (msgMap[friend.name] || []) : [];
+  // Compute chatId identical to backend getPrivateChatId
+  const chatId = [String(currUserId), String(friend._id)].sort().join("_");
+
+  useEffect(() => {
+    if (!chatId || !authToken) return;
+    setMessages([]);
+    fetch(`${NODE_API}/chat/messages/${chatId}`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && data.messages) setMessages(data.messages);
+    }).catch(console.error);
+
+    if (socket) socket.emit("joinRoom", chatId);
+    return () => { if (socket) socket.emit("leaveRoom", chatId); };
+  }, [chatId, authToken, socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleMsg = (msg) => {
+      if (msg.chatId === chatId) setMessages(p => [...p, msg]);
+    };
+    socket.on("receiveMessage", handleMsg);
+    return () => socket.off("receiveMessage", handleMsg);
+  }, [socket, chatId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, friend]);
   useEffect(() => {
@@ -351,33 +352,27 @@ function FriendChatPanel({ friend, onBack }) {
   }, [input]);
 
   const send = useCallback(() => {
-    const text = input.trim(); if (!text || !friend) return;
-    const msg = { id: Date.now(), from: "me", text };
-    setMsgMap(p => ({ ...p, [friend.name]: [...(p[friend.name] || []), msg] }));
+    const text = input.trim(); if (!text || !socket) return;
+    socket.emit("sendMessage", { chatId, content: text });
     setInput("");
-    // simulated reply
-    setTimeout(() => {
-      const reply = { id: Date.now() + 1, from: "them", text: "👋 (This is a simulated reply from " + friend.name + ")" };
-      setMsgMap(p => ({ ...p, [friend.name]: [...(p[friend.name] || []), reply] }));
-    }, 1000);
-  }, [input, friend]);
+  }, [input, socket, chatId]);
 
   if (!friend) return null;
+  const fColor = getAvatarColor(friend.name || friend._id);
 
   return (
     <>
       {/* Friend header */}
       <div className="nb-fc-header">
-        <div className="nb-friend-avatar nb-fc-avatar" style={{ background: friend.color }}>
-          {friend.name[0]}
+        <div className="nb-friend-avatar nb-fc-avatar" style={{ background: fColor }}>
+          {(friend.name||"?")[0].toUpperCase()}
           <div className={`nb-friend-status ${friend.status}`} />
         </div>
         <div className="nb-fc-meta">
           <div className="nb-fc-name">{friend.name}</div>
           <div className="nb-fc-status-text">
             <span className={`nb-fc-dot ${friend.status}`} />
-            {friend.status === "online" ? "Online" : friend.status === "away" ? "Away" : "Offline"}
-            {friend.status !== "offline" && <span style={{ color: "#4b5563", marginLeft: 6 }}>· {friend.activity}</span>}
+            {friend.status === "online" ? "Online" : "Offline"}
           </div>
         </div>
         <button className="nb-header-btn" style={{ marginLeft: "auto" }}><MoreHorizontal size={17} /></button>
@@ -387,22 +382,25 @@ function FriendChatPanel({ friend, onBack }) {
       <div className="nb-chat-history nb-fc-history">
         {messages.length === 0 && (
           <div className="nb-empty-state">
-            <div className="nb-fc-avatar-lg" style={{ background: friend.color }}>{friend.name[0]}</div>
+            <div className="nb-fc-avatar-lg" style={{ background: fColor }}>{(friend.name||"?")[0].toUpperCase()}</div>
             <div className="nb-empty-label">{friend.name}</div>
             <div className="nb-empty-sub">Start a conversation!</div>
           </div>
         )}
-        {messages.map((m, i) => (
-          <div key={m.id ?? i} className={`nb-msg ${m.from === "me" ? "user" : "assistant"}`}>
-            {m.from === "them" && (
-              <div className="nb-msg-avatar" style={{ background: friend.color }}>{friend.name[0]}</div>
-            )}
-            <div className={`nb-msg-bubble ${m.from === "me" ? "nb-fc-bubble-me" : "nb-fc-bubble-them"}`}>{m.text}</div>
-            {m.from === "me" && (
-              <div className="nb-msg-avatar" style={{ background: "#7c3aed" }}>U</div>
-            )}
-          </div>
-        ))}
+        {messages.map((m) => {
+          const isMe = String(m.sender._id || m.sender) === String(currUserId);
+          return (
+            <div key={m._id} className={`nb-msg ${isMe ? "user" : "assistant"}`}>
+              {!isMe && (
+                <div className="nb-msg-avatar" style={{ background: fColor }}>{(friend.name||"?")[0].toUpperCase()}</div>
+              )}
+              <div className={`nb-msg-bubble ${isMe ? "nb-fc-bubble-me" : "nb-fc-bubble-them"}`}>{m.content}</div>
+              {isMe && (
+                <div className="nb-msg-avatar" style={{ background: "#7c3aed" }}>U</div>
+              )}
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
 
@@ -445,7 +443,7 @@ const TABS = [
   { id: "friends", label: "Friends Chat", icon: <Users size={15} /> },
 ];
 
-function CenterPanel({ activeTab, setActiveTab, selectedFriend, activeSources, sessionId, authToken }) {
+function CenterPanel({ activeTab, setActiveTab, selectedFriend, activeSources, sessionId, authToken, currUserId, socket }) {
   return (
     <>
       {/* ── Tab bar ── */}
@@ -475,7 +473,7 @@ function CenterPanel({ activeTab, setActiveTab, selectedFriend, activeSources, s
 
         {activeTab === "friends" && (
           selectedFriend
-            ? <FriendChatPanel friend={selectedFriend} />
+            ? <FriendChatPanel friend={selectedFriend} currUserId={currUserId} authToken={authToken} socket={socket} />
             : <FriendsEmptyState />
         )}
       </div>
@@ -485,10 +483,12 @@ function CenterPanel({ activeTab, setActiveTab, selectedFriend, activeSources, s
 
 /* ═══════════════ Right Sidebar (Study Circle) ═══════════════ */
 
-function FriendsSidebar({ isOpen, onClose, selectedFriend, onSelectFriend }) {
+function FriendsSidebar({ isOpen, onClose, selectedFriend, onSelectFriend, friends, groups, friendRequests, onlineUsers, userChatId, onSendRequest, onAcceptRequest, onRejectRequest }) {
   const [query, setQuery] = useState("");
-  const filteredFriends = FRIENDS.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
-  const filteredGroups = GROUPS.filter(g => g.name.toLowerCase().includes(query.toLowerCase()));
+  const [addId, setAddId] = useState("");
+  
+  const filteredFriends = (friends || []).filter(f => (f.name||"").toLowerCase().includes(query.toLowerCase()));
+  const filteredGroups = (groups || []).filter(g => (g.name||"").toLowerCase().includes(query.toLowerCase()));
 
   return (
     <>
@@ -503,19 +503,63 @@ function FriendsSidebar({ isOpen, onClose, selectedFriend, onSelectFriend }) {
           </div>
           <button className="nb-panel-action" onClick={onClose}>✕</button>
         </div>
+        
+        {/* Add Friend Section */}
+        <div style={{ padding: "10px", borderBottom: "1px solid #1e1e1e" }}>
+          <div style={{ fontSize: 10, color: "#9ca3af", marginBottom: 6 }}>Your Chat ID: <b style={{color: "#e5e7eb", userSelect: "all"}}>{userChatId || "Loading..."}</b></div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input 
+              placeholder="Add friend by Chat ID" 
+              value={addId} 
+              onChange={e => setAddId(e.target.value)} 
+              style={{ flex: 1, background: "#1a1a1a", border: "1px solid #252525", color: "#e5e7eb", borderRadius: 6, padding: "4px 8px", fontSize: 12, outline: "none" }}
+            />
+            <button 
+              onClick={() => { if(addId.trim()) { onSendRequest(addId); setAddId(""); } }}
+              title="Send Friend Request"
+              style={{ background: "#7c3aed", border: "none", borderRadius: 6, padding: "4px 8px", color: "#fff", cursor: "pointer" }}
+            >
+              <UserPlus size={14} />
+            </button>
+          </div>
+        </div>
+
         <div className="nb-right-search">
           <Search size={13} color="#4b5563" />
           <input placeholder="Search friends…" value={query} onChange={e => setQuery(e.target.value)} />
         </div>
+        
         <div className="nb-friends-list">
-          {/* ── Individual ── */}
-          {filteredFriends.length > 0 && (
+          {/* ── Pending Requests ── */}
+          {friendRequests?.length > 0 && (
             <>
-              <div className="nb-section-label">Individual</div>
-              {filteredFriends.map(f => (
-                <SidebarFriendItem key={f.name} friend={f} selected={selectedFriend?.name === f.name} onSelect={onSelectFriend} />
+              <div className="nb-section-label">Requests ({friendRequests.length})</div>
+              {friendRequests.map(req => (
+                <div key={req._id} className="nb-friend-item" style={{ cursor: "default" }}>
+                  <div className="nb-friend-avatar" style={{ background: getAvatarColor(req.from?.name || req.from?._id) }}>
+                    {(req.from?.name || "?")[0].toUpperCase()}
+                  </div>
+                  <div className="nb-friend-info">
+                    <div className="nb-friend-name">{req.from?.name}</div>
+                    <div className="nb-friend-activity">Wants to connect</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => onAcceptRequest(req._id)} style={{ background: "none", border: "none", color: "#22c55e", cursor: "pointer", padding: 2 }}><CheckCircle size={15} /></button>
+                    <button onClick={() => onRejectRequest(req._id)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 2 }}><XCircle size={15} /></button>
+                  </div>
+                </div>
               ))}
             </>
+          )}
+
+          {/* ── Individual Friends ── */}
+          <div className="nb-section-label" style={{ marginTop: 8 }}>Friends</div>
+          {filteredFriends.length === 0 ? (
+             <div style={{ padding: 10, fontSize: 11, color: "#6b7280", textAlign: "center" }}>No friends found</div>
+          ) : (
+            filteredFriends.map(f => (
+              <SidebarFriendItem key={f._id} friend={f} selected={selectedFriend?._id === f._id} onSelect={onSelectFriend} isOnline={onlineUsers.includes(f._id)} />
+            ))
           )}
 
           {/* ── Groups ── */}
@@ -523,7 +567,7 @@ function FriendsSidebar({ isOpen, onClose, selectedFriend, onSelectFriend }) {
             <>
               <div className="nb-section-label" style={{ marginTop: 8 }}>Groups</div>
               {filteredGroups.map(g => (
-                <GroupItem key={g.name} group={g} />
+                <GroupItem key={g._id} group={g} />
               ))}
             </>
           )}
@@ -533,22 +577,20 @@ function FriendsSidebar({ isOpen, onClose, selectedFriend, onSelectFriend }) {
   );
 }
 
-function SidebarFriendItem({ friend, selected, onSelect }) {
-  const unread = (SEED_MESSAGES[friend.name] || []).filter(m => m.from === "them").length;
+function SidebarFriendItem({ friend, selected, onSelect, isOnline }) {
   return (
     <div
       className={`nb-friend-item ${selected ? "nb-friend-item-selected" : ""}`}
       onClick={() => onSelect(friend)}
     >
-      <div className="nb-friend-avatar" style={{ background: friend.color }}>
-        {friend.name[0]}
-        <div className={`nb-friend-status ${friend.status}`} />
+      <div className="nb-friend-avatar" style={{ background: getAvatarColor(friend.name || friend._id) }}>
+        {(friend.name||"?")[0].toUpperCase()}
+        <div className={`nb-friend-status ${isOnline ? "online" : "offline"}`} />
       </div>
       <div className="nb-friend-info">
         <div className="nb-friend-name">{friend.name}</div>
-        <div className="nb-friend-activity">{friend.activity}</div>
+        <div className="nb-friend-activity">{isOnline ? "Online" : "Offline"}</div>
       </div>
-      {unread > 0 && <div className="nb-friend-badge">{unread}</div>}
     </div>
   );
 }
@@ -556,15 +598,13 @@ function SidebarFriendItem({ friend, selected, onSelect }) {
 function GroupItem({ group }) {
   return (
     <div className="nb-friend-item" style={{ cursor: "pointer" }}>
-      <div className="nb-friend-avatar" style={{ background: group.color, fontSize: 12 }}>
-        {group.name.slice(0, 2).toUpperCase()}
-        <div className={`nb-friend-status ${group.status}`} />
+      <div className="nb-friend-avatar" style={{ background: getAvatarColor(group.name || group._id), fontSize: 12 }}>
+        {(group.name||"GR").slice(0, 2).toUpperCase()}
       </div>
       <div className="nb-friend-info">
         <div className="nb-friend-name">{group.name}</div>
-        <div className="nb-friend-activity">{group.lastMsg}</div>
+        <div className="nb-friend-activity">{group.members?.length || 0} members</div>
       </div>
-      <div style={{ fontSize: 10, color: "#6b7280", flexShrink: 0 }}>{group.members} members</div>
     </div>
   );
 }
@@ -655,13 +695,21 @@ export default function Dashboard() {
   // Auth state
   const [authToken, setAuthToken] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userChatId, setUserChatId] = useState("");
+
+  // Social state
+  const [friends, setFriends] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [friendRequests, setFriendRequests] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [socket, setSocket] = useState(null);
 
   // Session state
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [sessionsLoading, setSessionsLoading] = useState(true);
 
-  // On mount: extract userId from JWT, load sessions
+  // Initial load
   useEffect(() => {
     const token = localStorage.getItem("fitmate_token");
     if (!token) { navigate("/signup"); return; }
@@ -669,17 +717,34 @@ export default function Dashboard() {
     const decoded = decodeToken(token);
     if (decoded?.id) setUserId(decoded.id);
 
+    // Fetch user profile for chatId
+    fetch(`${NODE_API}/auth/profile`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (d.success && d.user) setUserChatId(d.user.chatId); })
+      .catch(console.error);
+
+    // Connect Socket
+    const s = getSocket(token);
+    setSocket(s);
+
+    // Fetch initial social data
+    fetch(`${NODE_API}/chat/friends`, { headers: { Authorization: `Bearer ${token}` }})
+      .then(r => r.json()).then(d => { if(d.success) setFriends(d.friends); });
+    
+    fetch(`${NODE_API}/chat/groups`, { headers: { Authorization: `Bearer ${token}` }})
+      .then(r => r.json()).then(d => { if(d.success) setGroups(d.groups); });
+
+    fetch(`${NODE_API}/chat/friend-requests`, { headers: { Authorization: `Bearer ${token}` }})
+      .then(r => r.json()).then(d => { if(d.success) setFriendRequests(d.requests); });
+
     // Fetch sessions
-    fetch(`${NODE_API}/sessions`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    fetch(`${NODE_API}/sessions`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(async (data) => {
         if (data.success && data.sessions.length > 0) {
           setSessions(data.sessions);
           setActiveSessionId(data.sessions[0].id);
         } else {
-          // Auto-create first session
           const res = await fetch(`${NODE_API}/sessions`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -694,7 +759,67 @@ export default function Dashboard() {
       })
       .catch(console.error)
       .finally(() => setSessionsLoading(false));
+
+    return () => { disconnectSocket(); };
   }, [navigate]);
+
+  // Socket listeners
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("onlineUsers", users => setOnlineUsers(users));
+    socket.on("userOnline", ({ userId }) => setOnlineUsers(p => [...new Set([...p, userId])]));
+    socket.on("userOffline", ({ userId }) => setOnlineUsers(p => p.filter(u => u !== userId)));
+    socket.on("friendRequestReceived", req => setFriendRequests(p => [req, ...p]));
+    socket.on("friendRequestAccepted", ({ friend }) => setFriends(p => [friend, ...p]));
+    socket.on("addedToGroup", ({ group }) => setGroups(p => [group, ...p]));
+
+    return () => {
+      socket.off("onlineUsers");
+      socket.off("userOnline");
+      socket.off("userOffline");
+      socket.off("friendRequestReceived");
+      socket.off("friendRequestAccepted");
+      socket.off("addedToGroup");
+    };
+  }, [socket]);
+
+  // Handlers for Friend system
+  const handleSendRequest = async (chatId) => {
+    try {
+      const res = await fetch(`${NODE_API}/chat/friend-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ chatId })
+      });
+      const data = await res.json();
+      if (!data.success) alert(data.message);
+    } catch(err) { console.error(err); }
+  };
+
+  const handleAcceptRequest = async (reqId) => {
+    try {
+      const res = await fetch(`${NODE_API}/chat/friend-request/${reqId}/accept`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFriendRequests(p => p.filter(r => r._id !== reqId));
+        // friend is added via socket event
+      }
+    } catch(err) { console.error(err); }
+  };
+
+  const handleRejectRequest = async (reqId) => {
+    try {
+      const res = await fetch(`${NODE_API}/chat/friend-request/${reqId}/reject`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      const data = await res.json();
+      if (data.success) setFriendRequests(p => p.filter(r => r._id !== reqId));
+    } catch(err) { console.error(err); }
+  };
 
   const handleCreateSession = useCallback(async () => {
     if (!authToken) return;
@@ -741,6 +866,7 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("fitmate_token");
+    disconnectSocket();
     navigate("/signup");
   };
 
@@ -819,6 +945,8 @@ export default function Dashboard() {
             activeSources={activeSources}
             sessionId={activeSessionId}
             authToken={authToken}
+            currUserId={userId}
+            socket={socket}
           />
 
           {!friendsOpen && (
@@ -834,6 +962,14 @@ export default function Dashboard() {
           onClose={() => setFriendsOpen(false)}
           selectedFriend={selectedFriend}
           onSelectFriend={handleSidebarFriendSelect}
+          friends={friends}
+          groups={groups}
+          friendRequests={friendRequests}
+          onlineUsers={onlineUsers}
+          userChatId={userChatId}
+          onSendRequest={handleSendRequest}
+          onAcceptRequest={handleAcceptRequest}
+          onRejectRequest={handleRejectRequest}
         />
       </div>
     </div>

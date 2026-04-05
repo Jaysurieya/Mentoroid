@@ -108,17 +108,18 @@ def parse_youtube(url: str) -> list[dict]:
     video_id = _youtube_id(url)
     if not video_id:
         raise ValueError(f"Could not extract YouTube video ID from URL: {url}")
-    transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=["en", "en-US"])
+    ytt_api = YouTubeTranscriptApi()
+    transcript = ytt_api.fetch(video_id)
     # Group transcript into ~60 second chunks
     pages = []
     current, current_time = [], 0.0
     chunk_duration = 60  # seconds per chunk
-    for entry in transcript_list:
-        if entry["start"] - current_time > chunk_duration and current:
+    for snippet in transcript:
+        if snippet.start - current_time > chunk_duration and current:
             pages.append({"page": len(pages) + 1, "text": _clean(" ".join(current))})
             current = []
-            current_time = entry["start"]
-        current.append(entry["text"])
+            current_time = snippet.start
+        current.append(snippet.text)
     if current:
         pages.append({"page": len(pages) + 1, "text": _clean(" ".join(current))})
     return pages

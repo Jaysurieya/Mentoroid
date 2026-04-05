@@ -174,6 +174,7 @@ exports.getProfile = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        chatId: user.chatId,
         photoURL: user.photoURL,
         coverPhoto: user.coverPhoto,
         phone: user.phone,
